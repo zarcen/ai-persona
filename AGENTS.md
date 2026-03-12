@@ -8,8 +8,8 @@ This file tells AI coding agents (Claude Code, Cursor, etc.) how to work with th
 
 This is a monorepo of portable **agent skills** and **MCPs** (Model Context Protocol servers).
 Skills are markdown-based instruction sets that teach AI agents domain expertise.
-Each skill is authored as a `SKILL.md` with optional `references/` docs, then built into
-a single `.mdc` file for easy installation in Cursor or Claude Code.
+Each skill is authored as a `SKILL.md` with optional `references/` docs. The repo is also
+a Claude Code plugin (`.claude-plugin/`) and builds `.mdc` Cursor rule files.
 
 ---
 
@@ -19,9 +19,12 @@ a single `.mdc` file for easy installation in Cursor or Claude Code.
 ai-persona/
 ├── AGENTS.md                        ← You are here
 ├── README.md                        ← Public catalog + install instructions
+├── .claude-plugin/                  ← Claude Code plugin + marketplace manifests
+│   ├── plugin.json
+│   └── marketplace.json
 ├── scripts/
 │   ├── build.sh                     ← Bundles SKILL.md + references → .mdc
-│   └── validate.sh                  ← Lints frontmatter, checks refs, verifies dist/
+│   └── validate.sh                  ← Lints frontmatter, checks refs, verifies cursor-rules/
 ├── skills/
 │   └── <skill-name>/
 │       ├── SKILL.md                 ← Source: frontmatter + instructions
@@ -29,9 +32,7 @@ ai-persona/
 │       ├── references/              ← Deep-dive reference docs (bundled into .mdc)
 │       │   ├── topic-a.md
 │       │   └── topic-b.md
-│       └── dist/
-│           └── <skill-name>.mdc     ← Built artifact (committed for curl installs)
-├── dist/                            ← Flat mirror of all .mdc files (stable curl URLs)
+├── cursor-rules/                    ← Built .mdc files (committed for curl installs)
 │   └── <skill-name>.mdc
 ├── mcps/                            ← MCP servers (coming soon)
 │   └── <mcp-name>/
@@ -39,7 +40,7 @@ ai-persona/
 │       ├── server.py / index.ts     ← MCP server implementation
 │       └── mcp.json                 ← MCP manifest
 └── .github/workflows/
-    └── build.yml                    ← CI: build + validate + auto-commit dist/
+    └── build.yml                    ← CI: build + validate + auto-commit cursor-rules/
 ```
 
 ---
@@ -124,8 +125,7 @@ A human-readable description of the skill for GitHub browsing. Include:
 ```
 
 This produces:
-- `skills/my-new-skill/dist/my-new-skill.mdc` — per-skill artifact
-- `dist/my-new-skill.mdc` — flat mirror for curl installs
+- `cursor-rules/my-new-skill.mdc` — built Cursor rule file
 
 ### 6. Validate
 
@@ -133,7 +133,7 @@ This produces:
 ./scripts/validate.sh my-new-skill
 ```
 
-All checks must pass: frontmatter fields present, reference links valid, dist files exist.
+All checks must pass: frontmatter fields present, reference links valid, cursor-rules files exist.
 
 ### 7. Update README.md
 
@@ -143,22 +143,21 @@ Add a row to the skills table in the root `README.md`:
 | [my-new-skill](skills/my-new-skill/) | One-line description | [↓ curl](#install) |
 ```
 
-Add curl install command under the `### Cursor Agent` section:
-
-```bash
-# my-new-skill
-curl -o .cursor/rules/my-new-skill.mdc \
-  https://raw.githubusercontent.com/zarcen/ai-persona/main/dist/my-new-skill.mdc
-```
+Add install commands under the install sections of the root `README.md`.
+Follow the existing k8s-operator entries as a template for:
+- Claude Code plugin marketplace (automatic via the repo plugin)
+- Claude Code manual skill install (curl commands for SKILL.md + references)
+- Cursor skill install (curl commands for SKILL.md + references)
+- Cursor rule install (single .mdc from cursor-rules/)
 
 ### 8. Commit
 
 ```bash
-git add skills/my-new-skill/ dist/my-new-skill.mdc README.md
+git add skills/my-new-skill/ cursor-rules/my-new-skill.mdc README.md
 git commit -m "feat: add my-new-skill"
 ```
 
-Commit `dist/` files so curl installs work without a build step.
+Commit `cursor-rules/` files so curl installs work without a build step.
 CI will also auto-rebuild on push to main as a safety net.
 
 ---
@@ -207,7 +206,7 @@ Add an entry to the MCPs table (create the table if it doesn't exist yet).
 
 - Extracts frontmatter from `SKILL.md` (handles YAML folded/block scalars)
 - Generates `.mdc` Cursor rule file: frontmatter (`description`, `globs`, `alwaysApply`) + body + inlined references
-- Copies to both `skills/<name>/dist/` and root `dist/`
+- Outputs to `cursor-rules/<name>.mdc`
 
 ### `scripts/validate.sh`
 
@@ -215,15 +214,14 @@ Checks:
 - `SKILL.md` exists with required `name` and `description` frontmatter
 - All `references/*.md` files exist
 - Cross-references in `SKILL.md` (e.g. `references/foo.md`) resolve to real files
-- `dist/<name>.mdc` exists and is non-empty
-- Root `dist/<name>.mdc` mirror exists
+- `cursor-rules/<name>.mdc` exists and is non-empty
 
 ### CI (`.github/workflows/build.yml`)
 
 On every push/PR to `main`:
 1. Builds all skills
 2. Validates all skills
-3. On main branch pushes: auto-commits rebuilt `dist/` files with `[skip ci]`
+3. On main branch pushes: auto-commits rebuilt `cursor-rules/` files with `[skip ci]`
 
 ---
 
@@ -231,7 +229,7 @@ On every push/PR to `main`:
 
 - **Skill names**: lowercase kebab-case (e.g. `k8s-operator`, `react-testing`)
 - **One skill per directory**: never nest skills
-- **Commit dist/**: always commit built `.mdc` files so curl installs work without CI
+- **Commit cursor-rules/**: always commit built `.mdc` files so curl installs work without CI
 - **No secrets**: never put API keys, tokens, or credentials in skill files
 - **Idempotent builds**: running `build.sh` twice produces identical output
 - **Test locally**: always run `validate.sh` before pushing
@@ -246,4 +244,7 @@ On every push/PR to `main`:
 | Build one skill | `./scripts/build.sh <name>` |
 | Validate all | `./scripts/validate.sh` |
 | Validate one | `./scripts/validate.sh <name>` |
-| Install in Cursor | `curl -o .cursor/rules/<name>.mdc https://raw.githubusercontent.com/zarcen/ai-persona/main/dist/<name>.mdc` |
+| Install in Claude Code (plugin) | `/plugin marketplace add zarcen/ai-persona` then `/plugin install ai-persona@ai-persona` |
+| Install in Claude Code (manual) | `cp -r skills/<name>/ .claude/skills/<name>/` |
+| Install in Cursor (skill) | `cp -r skills/<name>/ .cursor/skills/<name>/` |
+| Install in Cursor (rule) | `curl -o .cursor/rules/<name>.mdc https://raw.githubusercontent.com/zarcen/ai-persona/main/cursor-rules/<name>.mdc` |

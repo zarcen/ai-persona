@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/validate.sh
 # Validates all skills: checks required frontmatter fields,
-# detects broken references, and ensures dist/ is up to date.
+# detects broken references, ensures cursor-rules/ is up to date,
+# and verifies .claude-plugin/ manifests are in sync with skills/.
 #
 # Usage:
 #   ./scripts/validate.sh               # validate all skills
@@ -11,6 +12,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$REPO_ROOT/skills"
+MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
 
 pass=0; fail=0
 
@@ -73,24 +75,75 @@ validate_skill() {
     done < <(grep -oE 'references/[a-z0-9_-]+\.md' "$skill_md" | sort -u || true)
   fi
 
-  # Check dist is present and non-empty
-  local mdc="$skill_dir/dist/${name}.mdc"
+  # Check cursor-rules output is present and non-empty
+  local mdc="$REPO_ROOT/cursor-rules/${name}.mdc"
   if [[ ! -f "$mdc" ]]; then
-    err "dist/${name}.mdc missing — run ./scripts/build.sh $name"
+    err "cursor-rules/${name}.mdc missing — run ./scripts/build.sh $name"
   elif [[ ! -s "$mdc" ]]; then
-    err "dist/${name}.mdc is empty"
+    err "cursor-rules/${name}.mdc is empty"
   else
-    ok "dist/${name}.mdc exists ($(wc -l < "$mdc") lines)"
+    ok "cursor-rules/${name}.mdc exists ($(wc -l < "$mdc") lines)"
   fi
 
-  # Check flat dist mirror
-  local flat="$REPO_ROOT/dist/${name}.mdc"
-  if [[ ! -f "$flat" ]]; then
-    err "dist/${name}.mdc missing from repo root dist/ — run ./scripts/build.sh"
+  # Check per-skill .claude-plugin/plugin.json exists
+  local plugin_json="$skill_dir/.claude-plugin/plugin.json"
+  if [[ ! -f "$plugin_json" ]]; then
+    err ".claude-plugin/plugin.json missing — run ./scripts/build.sh $name"
+  elif ! python3 -c "import json,sys; json.load(sys.stdin)" < "$plugin_json" 2>/dev/null; then
+    err ".claude-plugin/plugin.json is invalid JSON"
   else
-    ok "root dist/${name}.mdc present"
+    ok ".claude-plugin/plugin.json exists"
   fi
 }
+
+validate_marketplace() {
+  log "marketplace.json"
+
+  if [[ ! -f "$MARKETPLACE_JSON" ]]; then
+    err "marketplace.json missing — run ./scripts/build.sh"
+    return
+  fi
+
+  if ! python3 -c "import json,sys; json.load(sys.stdin)" < "$MARKETPLACE_JSON" 2>/dev/null; then
+    err "marketplace.json is invalid JSON"
+    return
+  fi
+  ok "marketplace.json is valid JSON"
+
+  # Every skill directory must have a matching plugin entry
+  for skill_dir in "$SKILLS_DIR"/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    local name
+    name="$(basename "$skill_dir")"
+    [[ -f "$skill_dir/SKILL.md" ]] || continue
+
+    if grep -q "\"name\": \"${name}\"" "$MARKETPLACE_JSON"; then
+      ok "marketplace.json has entry for $name"
+    else
+      err "marketplace.json missing entry for skill: $name"
+    fi
+  done
+
+  # Every plugin entry in marketplace.json must have a matching skill directory
+  local plugin_names
+  plugin_names="$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for p in data.get('plugins', []):
+    print(p['name'])
+" < "$MARKETPLACE_JSON")"
+
+  while IFS= read -r pname; do
+    [[ -z "$pname" ]] && continue
+    if [[ -d "$SKILLS_DIR/$pname" && -f "$SKILLS_DIR/$pname/SKILL.md" ]]; then
+      ok "plugin '$pname' maps to skills/$pname/"
+    else
+      err "plugin '$pname' in marketplace.json has no matching skills/$pname/SKILL.md"
+    fi
+  done <<< "$plugin_names"
+}
+
+# ── main ───────────────────────────────────────────────────────────────────────
 
 if [[ $# -eq 1 ]]; then
   validate_skill "$SKILLS_DIR/$1"
@@ -99,6 +152,8 @@ else
     [[ -d "$skill_dir" ]] && validate_skill "$skill_dir"
   done
 fi
+
+validate_marketplace
 
 echo ""
 echo "Result: $pass passed, $fail failed"

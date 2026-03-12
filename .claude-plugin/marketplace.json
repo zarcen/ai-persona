@@ -1,0 +1,18 @@
+{
+  "name": "ai-persona",
+  "owner": {
+    "name": "zarcen"
+  },
+  "metadata": {
+    "description": "Reusable agent skills for AI coding agents",
+    "pluginRoot": "./skills"
+  },
+  "plugins": [
+    {
+      "name": "k8s-operator",
+      "source": "k8s-operator",
+      "description": "Expert guide for building Kubernetes operators scaffolded with kubebuilder. Use this skill whenever the user is working on Kubernetes controllers, operators, CRDs, or any Go code involving controller-runtime, client-go, or kubebuilder. Triggers include: writing reconcile loops, designing CRD schemas, setting up RBAC markers, handling finalizers, implementing status conditions, building webhooks, writing controller tests, or any mention of operator, controller, kubebuilder, CRD, reconciler, or client-go. Also use when the user asks to scaffold a new operator project, add a new API type, or debug watch/cache issues.",
+      "version": "1.0.0"
+    }
+  ]
+}

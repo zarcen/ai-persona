@@ -8,27 +8,64 @@ A monorepo of reusable agent skills and MCPs for Claude Code, Cursor, and other 
 
 | Skill | Description | Install |
 |-------|-------------|---------|
-| [k8s-operator](skills/k8s-operator/) | Kubernetes operator development with kubebuilder — CRDs, reconcilers, client-go, testing | [↓ curl](#install) |
+| [k8s-operator](skills/k8s-operator/) | Kubernetes operator development with kubebuilder — CRDs, reconcilers, client-go, testing | [↓ install](#install) |
 
 ---
 
 ## Install
 
-### Cursor Agent
+### Claude Code (as a Plugin — recommended)
+
+Add the marketplace and install:
+
+```bash
+claude plugin marketplace add zarcen/ai-persona
+claude plugin install ai-persona@<skill_name>
+```
+
+Or install the skill directory manually:
+
+```bash
+mkdir -p .claude/skills/k8s-operator/references
+curl -o .claude/skills/k8s-operator/SKILL.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/SKILL.md
+curl -o .claude/skills/k8s-operator/references/crd-design.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/crd-design.md
+curl -o .claude/skills/k8s-operator/references/reconciler-patterns.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/reconciler-patterns.md
+curl -o .claude/skills/k8s-operator/references/client-go.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/client-go.md
+curl -o .claude/skills/k8s-operator/references/testing.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/testing.md
+```
+
+### Cursor (as a Skill — recommended)
+
+Install the skill directory so the agent loads it on demand:
+
+```bash
+# k8s-operator
+mkdir -p .cursor/skills/k8s-operator/references
+curl -o .cursor/skills/k8s-operator/SKILL.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/SKILL.md
+curl -o .cursor/skills/k8s-operator/references/crd-design.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/crd-design.md
+curl -o .cursor/skills/k8s-operator/references/reconciler-patterns.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/reconciler-patterns.md
+curl -o .cursor/skills/k8s-operator/references/client-go.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/client-go.md
+curl -o .cursor/skills/k8s-operator/references/testing.md \
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/skills/k8s-operator/references/testing.md
+```
+
+### Cursor (as a Rule — alternative)
+
+Bundles everything into one file, auto-injected on all `.go`/`.yaml` files:
 
 ```bash
 mkdir -p .cursor/rules
-
-# k8s-operator
 curl -o .cursor/rules/k8s-operator.mdc \
-  https://raw.githubusercontent.com/zarcen/ai-persona/main/dist/k8s-operator.mdc
-```
-
-### Claude Code
-
-```bash
-# k8s-operator
-claude plugin install https://github.com/zarcen/ai-persona/tree/main/skills/k8s-operator
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/cursor-rules/k8s-operator.mdc
 ```
 
 ---
@@ -37,18 +74,19 @@ claude plugin install https://github.com/zarcen/ai-persona/tree/main/skills/k8s-
 
 ```
 ai-persona/
+├── .claude-plugin/              # Claude Code plugin + marketplace manifests
+│   ├── plugin.json
+│   └── marketplace.json
 ├── skills/
 │   └── <skill-name>/
-│       ├── SKILL.md          # Source — frontmatter + instructions
-│       ├── references/       # Deep-dive reference docs (loaded on demand)
-│       └── dist/
-│           └── <name>.mdc    # Built artifact (SKILL.md + references bundled)
-├── dist/                     # Flat mirror of all .mdc files (stable curl URLs)
+│       ├── SKILL.md             # Source — frontmatter + instructions
+│       └── references/          # Deep-dive reference docs (loaded on demand)
+├── cursor-rules/                # Built .mdc files (SKILL.md + references bundled)
 ├── scripts/
-│   ├── build.sh              # Regenerate all dist/ files
-│   └── validate.sh           # Lint frontmatter + check broken refs
+│   ├── build.sh                 # Regenerate all cursor-rules/ files
+│   └── validate.sh              # Lint frontmatter + check broken refs
 └── .github/workflows/
-    └── build.yml             # Auto-rebuild dist/ on push to main
+    └── build.yml                # Auto-rebuild cursor-rules/ on push to main
 ```
 
 ---
@@ -69,8 +107,8 @@ mkdir -p skills/my-skill/references
 # 4. Validate
 ./scripts/validate.sh my-skill
 
-# 5. Commit (dist/ files are committed so curl installs work without a build step)
-git add skills/my-skill dist/my-skill.mdc
+# 5. Commit (cursor-rules/ files are committed so curl installs work without a build step)
+git add skills/my-skill cursor-rules/my-skill.mdc
 git commit -m "feat: add my-skill"
 ```
 
@@ -111,4 +149,4 @@ server implementation, and any required config.
 ./scripts/validate.sh
 ```
 
-CI (GitHub Actions) automatically rebuilds and commits `dist/` on every push to `main`.
+CI (GitHub Actions) automatically rebuilds and commits `cursor-rules/` on every push to `main`.
