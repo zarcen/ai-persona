@@ -51,10 +51,10 @@ or `.cursor/skill-params.yaml` (Cursor) in your project root:
 
 ```yaml
 k8s_operator:
-  go_version: "1.22"
+  go_version: "1.25"
   controller_runtime_version: "v0.18"
   kubebuilder_version: "v4"
-  k8s_version: "1.31"
+  k8s_version: "1.35"
   default_image_registry: "gcr.io/my-project"
   enable_webhooks: true
   enable_leader_election: true
