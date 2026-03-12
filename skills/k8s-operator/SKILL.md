@@ -1,13 +1,9 @@
 ---
 name: k8s-operator
 description: >
-  Expert guide for building Kubernetes operators scaffolded with kubebuilder. Use this skill
-  whenever the user is working on Kubernetes controllers, operators, CRDs, or any Go code
-  involving controller-runtime, client-go, or kubebuilder. Triggers include: writing reconcile
-  loops, designing CRD schemas, setting up RBAC markers, handling finalizers, implementing
-  status conditions, building webhooks, writing controller tests, or any mention of "operator",
-  "controller", "kubebuilder", "CRD", "reconciler", or "client-go". Also use when the user
-  asks to scaffold a new operator project, add a new API type, or debug watch/cache issues.
+  Expert guide for building Kubernetes operators with kubebuilder and controller-runtime.
+  Covers CRD schema design, reconciler patterns, client-go usage, RBAC markers, webhooks,
+  and envtest-based testing. Use when writing or reviewing Go code for Kubernetes operators.
 parameters:
   go_version: "1.25"
   controller_runtime_version: "v0.18"

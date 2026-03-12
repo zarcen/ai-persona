@@ -26,6 +26,19 @@ jobs:
       - name: Validate all skills
         run: ./scripts/validate.sh
 
+      - name: Install skill-validator
+        run: go install github.com/agent-ecosystem/skill-validator/cmd/skill-validator@latest
+
+      - name: Lint skills (skill-validator)
+        continue-on-error: true
+        run: |
+          for skill_dir in skills/*/; do
+            [ -d "$skill_dir" ] || continue
+            echo "▶ Validating $skill_dir"
+            skill-validator validate structure "$skill_dir" --emit-annotations
+            skill-validator validate links "$skill_dir" --emit-annotations
+          done
+
       - name: Commit built cursor-rules/ files (main branch only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |

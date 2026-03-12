@@ -118,6 +118,15 @@ A human-readable description of the skill for GitHub browsing. Include:
 - Configuration / parameter overrides
 - File structure listing
 
+**Claude Code plugin install command format:**
+The syntax is `claude plugin install <plugin-name>@<marketplace-name>`.
+The marketplace name is `ai-persona` and the plugin name matches the skill name.
+For example, for a skill named `my-new-skill`:
+```bash
+claude plugin marketplace add zarcen/ai-persona
+claude plugin install my-new-skill@ai-persona
+```
+
 ### 5. Build
 
 ```bash
@@ -244,7 +253,7 @@ On every push/PR to `main`:
 | Build one skill | `./scripts/build.sh <name>` |
 | Validate all | `./scripts/validate.sh` |
 | Validate one | `./scripts/validate.sh <name>` |
-| Install in Claude Code (plugin) | `/plugin marketplace add zarcen/ai-persona` then `/plugin install ai-persona@ai-persona` |
+| Install in Claude Code (plugin) | `/plugin marketplace add zarcen/ai-persona` then `/plugin install <name>@ai-persona` |
 | Install in Claude Code (manual) | `cp -r skills/<name>/ .claude/skills/<name>/` |
 | Install in Cursor (skill) | `cp -r skills/<name>/ .cursor/skills/<name>/` |
 | Install in Cursor (rule) | `curl -o .cursor/rules/<name>.mdc https://raw.githubusercontent.com/zarcen/ai-persona/main/cursor-rules/<name>.mdc` |

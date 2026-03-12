@@ -20,7 +20,7 @@ Add the marketplace and install:
 
 ```bash
 claude plugin marketplace add zarcen/ai-persona
-claude plugin install ai-persona@<skill_name>
+claude plugin install <skill-name>@ai-persona
 ```
 
 Or install the skill directory manually:
@@ -139,14 +139,23 @@ server implementation, and any required config.
 ## Local Development
 
 ```bash
-# Build all skills
+# Build all skills (generates .mdc, plugin.json, marketplace.json)
 ./scripts/build.sh
 
 # Build a single skill
 ./scripts/build.sh k8s-operator
 
-# Validate
+# Validate (frontmatter, references, marketplace sync)
 ./scripts/validate.sh
+
+# Lint with skill-validator (structure + link checks)
+# Install: https://github.com/agent-ecosystem/skill-validator#installation
+#   brew install skill-validator
+#   — or —
+#   go install github.com/agent-ecosystem/skill-validator/cmd/skill-validator@latest
+skill-validator validate structure skills/k8s-operator/
+skill-validator validate links skills/k8s-operator/
 ```
 
-CI (GitHub Actions) automatically rebuilds and commits `cursor-rules/` on every push to `main`.
+CI (GitHub Actions) automatically rebuilds `cursor-rules/` and runs
+`skill-validator` on every push to `main`.

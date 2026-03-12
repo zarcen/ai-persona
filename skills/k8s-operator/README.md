@@ -20,7 +20,7 @@ Add the marketplace and install:
 
 ```bash
 claude plugin marketplace add zarcen/ai-persona
-claude plugin install ai-persona@ai-persona
+claude plugin install k8s-operator@ai-persona
 ```
 
 Or install the skill directory manually:
