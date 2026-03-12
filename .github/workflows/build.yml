@@ -1,0 +1,31 @@
+name: Build & Validate Skills
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: Build all skills
+        run: ./scripts/build.sh
+
+      - name: Validate all skills
+        run: ./scripts/validate.sh
+
+      - name: Commit built dist/ files (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/ skills/*/dist/
+          git diff --cached --quiet || git commit -m "chore: rebuild dist/ [skip ci]"
+          git push
