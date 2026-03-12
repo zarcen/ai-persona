@@ -21,7 +21,7 @@ Covers:
 claude plugin install k8s-operator
 
 # Or install locally from this directory
-claude plugin install ./k8s-operator-skill/
+claude plugin install https://github.com/zarcen/ai-persona/tree/main/skills/k8s-operator
 ```
 
 ### Cursor Agent
@@ -30,12 +30,12 @@ claude plugin install ./k8s-operator-skill/
 # One-liner install (single .mdc file, all references bundled inline)
 mkdir -p .cursor/rules
 curl -o .cursor/rules/k8s-operator.mdc \
-  https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/k8s-operator.mdc
+  https://raw.githubusercontent.com/zarcen/ai-persona/main/dist/k8s-operator.mdc
 ```
 
-Or copy manually:
+Or copy manually from a local clone:
 ```bash
-cp k8s-operator.mdc .cursor/rules/k8s-operator.mdc
+cp dist/k8s-operator.mdc .cursor/rules/k8s-operator.mdc
 ```
 
 ### Generic (any agent that reads markdown rules)
@@ -68,10 +68,11 @@ k8s_operator:
 ## File Structure
 
 ```
-k8s-operator-skill/
+k8s-operator/
 ├── SKILL.md                          # Main skill (Claude Code)
-├── k8s-operator.mdc                  # Bundled single-file (Cursor)
 ├── README.md                         # This file
+├── dist/
+│   └── k8s-operator.mdc             # Bundled single-file (Cursor)
 └── references/
     ├── crd-design.md                 # CRD schema, validation, conversion webhooks
     ├── reconciler-patterns.md        # Finalizers, error handling, events, metrics
