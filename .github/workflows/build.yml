@@ -26,12 +26,11 @@ jobs:
       - name: Validate all skills
         run: ./scripts/validate.sh
 
-      - name: Install skill-validator
-        run: go install github.com/agent-ecosystem/skill-validator/cmd/skill-validator@latest
-
       - name: Lint skills (skill-validator)
         continue-on-error: true
         run: |
+          go install github.com/agent-ecosystem/skill-validator/cmd/skill-validator@latest
+          export PATH="$(go env GOPATH)/bin:$PATH"
           for skill_dir in skills/*/; do
             [ -d "$skill_dir" ] || continue
             echo "▶ Validating $skill_dir"
