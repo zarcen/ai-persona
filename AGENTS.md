@@ -8,8 +8,11 @@ This file tells AI coding agents (Claude Code, Cursor, etc.) how to work with th
 
 This is a monorepo of portable **agent skills** and **MCPs** (Model Context Protocol servers).
 Skills are markdown-based instruction sets that teach AI agents domain expertise.
-Each skill is authored as a `SKILL.md` with optional `references/` docs. The repo is also
-a Claude Code plugin (`.claude-plugin/`) and builds `.mdc` Cursor rule files.
+Each skill is authored as a `SKILL.md` with optional `references/` docs.
+
+The build system generates agent-specific artifacts:
+- `cursor-rules/` — `.mdc` Cursor rule files (SKILL.md + references bundled)
+- `plugins/` — Claude Code plugin directories (symlinks into `skills/`)
 
 ---
 
@@ -22,18 +25,22 @@ ai-persona/
 ├── .claude-plugin/                  ← Claude Code marketplace manifest
 │   └── marketplace.json
 ├── scripts/
-│   ├── build.sh                     ← Bundles SKILL.md + references → .mdc
-│   └── validate.sh                  ← Lints frontmatter, checks refs, verifies cursor-rules/
-├── skills/
+│   ├── build.sh                     ← Generates cursor-rules/ + plugins/
+│   └── validate.sh                  ← Lints frontmatter, checks refs, verifies artifacts
+├── skills/                          ← SOURCE: author skills here
 │   └── <skill-name>/
-│       ├── .claude-plugin/           ← Per-skill plugin manifest (auto-generated)
-│       │   └── plugin.json
 │       ├── SKILL.md                 ← Source: frontmatter + instructions
 │       ├── README.md                ← Human-readable description + install guide
-│       ├── references/              ← Deep-dive reference docs (bundled into .mdc)
-│       │   ├── topic-a.md
-│       │   └── topic-b.md
-├── cursor-rules/                    ← Built .mdc files (committed for curl installs)
+│       └── references/              ← Deep-dive reference docs
+│           ├── topic-a.md
+│           └── topic-b.md
+├── plugins/                         ← BUILT: Claude Code plugin format (committed)
+│   └── <skill-name>/
+│       ├── .claude-plugin/
+│       │   └── plugin.json          ← Generated plugin manifest
+│       └── skills/
+│           └── <skill-name> → ../../../skills/<skill-name>  (symlink)
+├── cursor-rules/                    ← BUILT: Cursor .mdc files (committed)
 │   └── <skill-name>.mdc
 ├── mcps/                            ← MCP servers (coming soon)
 │   └── <mcp-name>/
@@ -41,7 +48,7 @@ ai-persona/
 │       ├── server.py / index.ts     ← MCP server implementation
 │       └── mcp.json                 ← MCP manifest
 └── .github/workflows/
-    └── build.yml                    ← CI: build + validate + auto-commit cursor-rules/
+    └── build.yml                    ← CI: build + validate + auto-commit artifacts
 ```
 
 ---
@@ -135,8 +142,8 @@ claude plugin install my-new-skill@ai-persona
 ```
 
 This produces:
-- `cursor-rules/my-new-skill.mdc` — built Cursor rule file
-- `skills/my-new-skill/.claude-plugin/plugin.json` — Claude Code plugin manifest
+- `cursor-rules/my-new-skill.mdc` — Cursor rule file
+- `plugins/my-new-skill/` — Claude Code plugin directory (symlinks into skills/)
 - `.claude-plugin/marketplace.json` — updated marketplace catalog
 
 ### 6. Validate
@@ -145,7 +152,7 @@ This produces:
 ./scripts/validate.sh my-new-skill
 ```
 
-All checks must pass: frontmatter fields present, reference links valid, cursor-rules files exist.
+All checks must pass: frontmatter fields present, reference links valid, built artifacts exist.
 
 ### 7. Update README.md
 
@@ -161,11 +168,11 @@ The root README only has generic install patterns (marketplace add, curl overvie
 ### 8. Commit
 
 ```bash
-git add skills/my-new-skill/ cursor-rules/my-new-skill.mdc .claude-plugin/marketplace.json README.md
+git add skills/my-new-skill/ plugins/my-new-skill/ cursor-rules/my-new-skill.mdc .claude-plugin/marketplace.json README.md
 git commit -m "feat: add my-new-skill"
 ```
 
-Commit `cursor-rules/` and `.claude-plugin/` files so curl installs and plugin installs work without a build step.
+Commit `cursor-rules/`, `plugins/`, and `.claude-plugin/` files so curl installs and plugin installs work without a build step.
 CI will also auto-rebuild on push to main as a safety net.
 
 ---
@@ -212,11 +219,10 @@ Add an entry to the MCPs table (create the table if it doesn't exist yet).
 
 ### `scripts/build.sh`
 
-- Extracts frontmatter from `SKILL.md` (handles YAML folded/block scalars)
-- Generates `.mdc` Cursor rule file: frontmatter (`description`, `globs`, `alwaysApply`) + body + inlined references
-- Generates `skills/<name>/.claude-plugin/plugin.json` per-skill plugin manifest
+- Reads `skills/<name>/SKILL.md` as the source of truth
+- Generates `cursor-rules/<name>.mdc`: frontmatter (`description`, `globs`, `alwaysApply`) + body + inlined references
+- Generates `plugins/<name>/`: `.claude-plugin/plugin.json` + `skills/<name>` symlink back to source
 - Regenerates `.claude-plugin/marketplace.json` marketplace catalog
-- Outputs to `cursor-rules/<name>.mdc`
 
 ### `scripts/validate.sh`
 
@@ -225,13 +231,14 @@ Checks:
 - All `references/*.md` files exist
 - Cross-references in `SKILL.md` (e.g. `references/foo.md`) resolve to real files
 - `cursor-rules/<name>.mdc` exists and is non-empty
+- `plugins/<name>/` has valid `plugin.json` and working symlink
 
 ### CI (`.github/workflows/build.yml`)
 
 On every push/PR to `main`:
 1. Builds all skills
 2. Validates all skills
-3. On main branch pushes: auto-commits rebuilt `cursor-rules/` files with `[skip ci]`
+3. On main branch pushes: auto-commits rebuilt artifacts with `[skip ci]`
 
 ---
 
@@ -239,7 +246,8 @@ On every push/PR to `main`:
 
 - **Skill names**: lowercase kebab-case (e.g. `k8s-operator`, `react-testing`)
 - **One skill per directory**: never nest skills
-- **Commit cursor-rules/**: always commit built `.mdc` files so curl installs work without CI
+- **Source in skills/**: always author in `skills/`, never edit `plugins/` or `cursor-rules/` directly
+- **Commit built artifacts**: always commit `plugins/`, `cursor-rules/`, and `.claude-plugin/` so installs work without CI
 - **No secrets**: never put API keys, tokens, or credentials in skill files
 - **Idempotent builds**: running `build.sh` twice produces identical output
 - **Test locally**: always run `validate.sh` before pushing
@@ -254,7 +262,7 @@ On every push/PR to `main`:
 | Build one skill | `./scripts/build.sh <name>` |
 | Validate all | `./scripts/validate.sh` |
 | Validate one | `./scripts/validate.sh <name>` |
-| Install in Claude Code (plugin) | `/plugin marketplace add zarcen/ai-persona` then `/plugin install <name>@ai-persona` |
+| Install in Claude Code (plugin) | `claude plugin marketplace add zarcen/ai-persona` then `claude plugin install <name>@ai-persona` |
 | Install in Claude Code (manual) | `cp -r skills/<name>/ .claude/skills/<name>/` |
 | Install in Cursor (skill) | `cp -r skills/<name>/ .cursor/skills/<name>/` |
 | Install in Cursor (rule) | `curl -o .cursor/rules/<name>.mdc https://raw.githubusercontent.com/zarcen/ai-persona/main/cursor-rules/<name>.mdc` |

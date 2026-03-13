@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/validate.sh
 # Validates all skills: checks required frontmatter fields,
-# detects broken references, ensures cursor-rules/ is up to date,
-# and verifies .claude-plugin/ manifests are in sync with skills/.
+# detects broken references, ensures built artifacts (cursor-rules/
+# and plugins/) are up to date.
 #
 # Usage:
 #   ./scripts/validate.sh               # validate all skills
@@ -12,6 +12,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$REPO_ROOT/skills"
+PLUGINS_DIR="$REPO_ROOT/plugins"
 MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
 
 pass=0; fail=0
@@ -85,14 +86,25 @@ validate_skill() {
     ok "cursor-rules/${name}.mdc exists ($(wc -l < "$mdc") lines)"
   fi
 
-  # Check per-skill .claude-plugin/plugin.json exists
-  local plugin_json="$skill_dir/.claude-plugin/plugin.json"
+  # Check plugins/<name>/ directory structure
+  local plugin_root="$PLUGINS_DIR/$name"
+  local plugin_json="$plugin_root/.claude-plugin/plugin.json"
+  local skill_link="$plugin_root/skills/$name"
+
   if [[ ! -f "$plugin_json" ]]; then
-    err ".claude-plugin/plugin.json missing — run ./scripts/build.sh $name"
+    err "plugins/${name}/.claude-plugin/plugin.json missing — run ./scripts/build.sh $name"
   elif ! python3 -c "import json,sys; json.load(sys.stdin)" < "$plugin_json" 2>/dev/null; then
-    err ".claude-plugin/plugin.json is invalid JSON"
+    err "plugins/${name}/.claude-plugin/plugin.json is invalid JSON"
   else
-    ok ".claude-plugin/plugin.json exists"
+    ok "plugins/${name}/.claude-plugin/plugin.json exists"
+  fi
+
+  if [[ ! -L "$skill_link" ]]; then
+    err "plugins/${name}/skills/${name} symlink missing — run ./scripts/build.sh $name"
+  elif [[ ! -d "$skill_link" ]]; then
+    err "plugins/${name}/skills/${name} symlink is broken"
+  else
+    ok "plugins/${name}/skills/${name} symlink OK"
   fi
 }
 
@@ -124,7 +136,7 @@ validate_marketplace() {
     fi
   done
 
-  # Every plugin entry in marketplace.json must have a matching skill directory
+  # Every plugin entry must map to a real skill directory
   local plugin_names
   plugin_names="$(python3 -c "
 import json, sys
@@ -141,6 +153,26 @@ for p in data.get('plugins', []):
       err "plugin '$pname' in marketplace.json has no matching skills/$pname/SKILL.md"
     fi
   done <<< "$plugin_names"
+
+  # Every plugin entry source must point to plugins/ directory
+  local plugin_sources
+  plugin_sources="$(python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for p in data.get('plugins', []):
+    src = p.get('source', '')
+    if isinstance(src, str):
+        print(p['name'] + '\t' + src)
+" < "$MARKETPLACE_JSON")"
+
+  while IFS=$'\t' read -r pname psource; do
+    [[ -z "$pname" ]] && continue
+    if [[ "$psource" == "./plugins/"* ]]; then
+      ok "plugin '$pname' source points to plugins/ ($psource)"
+    else
+      err "plugin '$pname' source should be ./plugins/$pname but is $psource"
+    fi
+  done <<< "$plugin_sources"
 }
 
 # ── main ───────────────────────────────────────────────────────────────────────

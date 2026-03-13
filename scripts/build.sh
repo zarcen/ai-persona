@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 # scripts/build.sh
-# Builds .mdc files for all skills (or a single skill if passed as argument).
-# Also generates Claude Code plugin manifests (.claude-plugin/) from SKILL.md frontmatter.
+# Builds agent-specific artifacts from skill sources in skills/.
 #
 # Usage:
 #   ./scripts/build.sh               # build all skills
 #   ./scripts/build.sh k8s-operator  # build one skill
 #
-# Output:
-#   cursor-rules/<name>.mdc                       (Cursor rule file)
-#   skills/<name>/.claude-plugin/plugin.json       (Claude Code plugin manifest)
-#   .claude-plugin/marketplace.json                (Claude Code marketplace catalog)
+# Source:
+#   skills/<name>/SKILL.md + references/       (author here)
+#
+# Output (all derived / committed):
+#   cursor-rules/<name>.mdc                    (Cursor rule file)
+#   plugins/<name>/                            (Claude Code plugin — symlinks into skills/)
+#   .claude-plugin/marketplace.json            (Claude Code marketplace catalog)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILLS_DIR="$REPO_ROOT/skills"
-DIST_DIR="$REPO_ROOT/cursor-rules"
+PLUGINS_DIR="$REPO_ROOT/plugins"
+CURSOR_RULES_DIR="$REPO_ROOT/cursor-rules"
 MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -55,20 +58,21 @@ json_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g'
 }
 
-# Build a single skill directory into a .mdc file + .claude-plugin/plugin.json
+# Build a single skill into agent-specific artifacts:
+#   cursor-rules/<name>.mdc           (Cursor)
+#   plugins/<name>/                   (Claude Code — plugin.json + symlink)
 build_skill() {
   local skill_dir="$1"
   local name
   name="$(basename "$skill_dir")"
   local skill_md="$skill_dir/SKILL.md"
   local refs_dir="$skill_dir/references"
-  local out_file="$DIST_DIR/${name}.mdc"
+  local mdc_file="$CURSOR_RULES_DIR/${name}.mdc"
 
   log "Building $name ..."
 
   [[ -f "$skill_md" ]] || err "Missing SKILL.md in $skill_dir"
 
-  # Extract description from SKILL.md frontmatter
   local description
   description="$(extract_field description "$skill_md")"
   [[ -n "$description" ]] || err "$name: could not extract 'description' from SKILL.md frontmatter"
@@ -102,18 +106,21 @@ build_skill() {
         cat "$ref"
       done
     fi
-  } > "$out_file"
+  } > "$mdc_file"
 
   ok "$name → cursor-rules/${name}.mdc"
 
-  # ── write .claude-plugin/plugin.json (Claude Code plugin manifest) ─────────
-  local plugin_dir="$skill_dir/.claude-plugin"
-  mkdir -p "$plugin_dir"
+  # ── write plugins/<name>/ (Claude Code plugin) ────────────────────────────
+  local plugin_root="$PLUGINS_DIR/$name"
+  local plugin_meta="$plugin_root/.claude-plugin"
+  local plugin_skills="$plugin_root/skills"
+
+  mkdir -p "$plugin_meta" "$plugin_skills"
 
   local desc_escaped
   desc_escaped="$(json_escape "$description")"
 
-  cat > "$plugin_dir/plugin.json" <<EOF
+  cat > "$plugin_meta/plugin.json" <<EOF
 {
   "name": "${name}",
   "description": "${desc_escaped}",
@@ -124,7 +131,12 @@ build_skill() {
 }
 EOF
 
-  ok "$name → skills/${name}/.claude-plugin/plugin.json"
+  # Symlink: plugins/<name>/skills/<name> → ../../../skills/<name>
+  local link_target="$plugin_skills/$name"
+  rm -f "$link_target"
+  ln -s "../../../skills/$name" "$link_target"
+
+  ok "$name → plugins/${name}/ (plugin.json + skills/ symlink)"
 }
 
 # Regenerate .claude-plugin/marketplace.json from all skill directories.
@@ -188,11 +200,12 @@ for name in sorted(generated):
     if name in existing_by_name:
         entry = existing_by_name[name]
         entry["description"] = generated[name]
+        entry["source"] = "./plugins/" + name
         new_plugins.append(entry)
     else:
         new_plugins.append({
             "name": name,
-            "source": "./skills/" + name,
+            "source": "./plugins/" + name,
             "description": generated[name],
             "version": "1.0.0"
         })
@@ -213,7 +226,7 @@ PYEOF
 
 # ── main ───────────────────────────────────────────────────────────────────────
 
-mkdir -p "$DIST_DIR"
+mkdir -p "$CURSOR_RULES_DIR" "$PLUGINS_DIR"
 
 if [[ $# -eq 1 ]]; then
   skill_dir="$SKILLS_DIR/$1"

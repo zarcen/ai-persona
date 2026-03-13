@@ -88,8 +88,6 @@ Copy `SKILL.md` and the `references/` folder to your agent's skills or rules dir
 
 ```
 k8s-operator/
-├── .claude-plugin/                   # Claude Code plugin manifest (auto-generated)
-│   └── plugin.json
 ├── SKILL.md                          # Main skill source (Cursor skill / Claude Code skill)
 ├── README.md                         # This file
 └── references/

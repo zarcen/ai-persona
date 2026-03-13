@@ -9,10 +9,9 @@
   "plugins": [
     {
       "name": "k8s-operator",
-      "source": "./skills/k8s-operator",
+      "source": "./plugins/k8s-operator",
       "description": "Expert guide for building Kubernetes operators with kubebuilder and controller-runtime. Covers CRD schema design, reconciler patterns, client-go usage, RBAC markers, webhooks, and envtest-based testing. Use when writing or reviewing Go code for Kubernetes operators.",
-      "version": "1.0.0",
-      "strict": false
+      "version": "1.0.0"
     }
   ]
 }

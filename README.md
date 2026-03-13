@@ -54,17 +54,21 @@ Copy `SKILL.md` and the `references/` folder into your agent's skills or rules d
 ai-persona/
 ├── .claude-plugin/              # Claude Code marketplace manifest
 │   └── marketplace.json
-├── skills/
+├── skills/                      # SOURCE — author skills here
 │   └── <skill-name>/
-│       ├── .claude-plugin/      # Per-skill plugin manifest (auto-generated)
-│       │   └── plugin.json
 │       ├── SKILL.md             # Source — frontmatter + instructions
 │       ├── README.md            # Human-readable install guide
 │       └── references/          # Deep-dive reference docs (loaded on demand)
-├── cursor-rules/                # Built .mdc files (SKILL.md + references bundled)
+├── plugins/                     # BUILT — Claude Code plugin format (symlinks into skills/)
+│   └── <skill-name>/
+│       ├── .claude-plugin/
+│       │   └── plugin.json
+│       └── skills/
+│           └── <skill-name> → symlink to skills/<skill-name>
+├── cursor-rules/                # BUILT — .mdc files (SKILL.md + references bundled)
 ├── scripts/
-│   ├── build.sh                 # Regenerate cursor-rules/ and plugin manifests
-│   └── validate.sh              # Lint frontmatter + check broken refs
+│   ├── build.sh                 # Regenerate plugins/ + cursor-rules/ + marketplace
+│   └── validate.sh              # Lint frontmatter + check built artifacts
 └── .github/workflows/
     └── build.yml                # Auto-rebuild on push to main
 ```
@@ -89,7 +93,7 @@ mkdir -p skills/my-skill/references
 ./scripts/validate.sh my-skill
 
 # 5. Commit (cursor-rules/ files are committed so curl installs work without a build step)
-git add skills/my-skill cursor-rules/my-skill.mdc README.md
+git add skills/my-skill plugins/my-skill cursor-rules/my-skill.mdc README.md
 git commit -m "feat: add my-skill"
 ```
 
@@ -120,7 +124,7 @@ server implementation, and any required config.
 ## Local Development
 
 ```bash
-# Build all skills (generates .mdc + plugin manifests)
+# Build all skills (generates plugins/ + cursor-rules/ + marketplace)
 ./scripts/build.sh
 
 # Build a single skill
@@ -130,5 +134,5 @@ server implementation, and any required config.
 ./scripts/validate.sh
 ```
 
-CI (GitHub Actions) automatically rebuilds `cursor-rules/` and plugin manifests
+CI (GitHub Actions) automatically rebuilds `cursor-rules/`, `plugins/`, and marketplace
 on every push to `main`.
