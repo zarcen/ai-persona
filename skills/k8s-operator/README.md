@@ -84,31 +84,12 @@ Copy `SKILL.md` and the `references/` folder to your agent's skills or rules dir
 
 ---
 
-## Configuration
-
-Override default parameters by creating `.claude/skill-params.yaml` (Claude Code)
-or `.cursor/skill-params.yaml` (Cursor) in your project root:
-
-```yaml
-k8s_operator:
-  go_version: "1.25"
-  controller_runtime_version: "v0.18"
-  kubebuilder_version: "v4"
-  k8s_version: "1.35"
-  default_image_registry: "gcr.io/my-project"
-  enable_webhooks: true
-  enable_leader_election: true
-  reconcile_timeout: "10m"
-  requeue_after_error: "30s"
-  max_concurrent_reconciles: 1
-```
-
----
-
 ## File Structure
 
 ```
 k8s-operator/
+├── .claude-plugin/                   # Claude Code plugin manifest (auto-generated)
+│   └── plugin.json
 ├── SKILL.md                          # Main skill source (Cursor skill / Claude Code skill)
 ├── README.md                         # This file
 └── references/
