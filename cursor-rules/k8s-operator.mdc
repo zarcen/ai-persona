@@ -11,19 +11,6 @@ description: >
   Expert guide for building Kubernetes operators with kubebuilder and controller-runtime.
   Covers CRD schema design, reconciler patterns, client-go usage, RBAC markers, webhooks,
   and envtest-based testing. Use when writing or reviewing Go code for Kubernetes operators.
-version: 1.0.1
-homepage: https://github.com/zarcen/ai-persona/tree/main/skills/k8s-operator
-parameters:
-  go_version: "1.25"
-  controller_runtime_version: "v0.18"
-  kubebuilder_version: "v4"
-  k8s_version: "1.35"
-  default_image_registry: "gcr.io/my-project"
-  enable_webhooks: true
-  enable_leader_election: true
-  reconcile_timeout: "10m"
-  requeue_after_error: "30s"
-  max_concurrent_reconciles: 1
 
 
 ---
