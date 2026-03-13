@@ -19,14 +19,15 @@ a Claude Code plugin (`.claude-plugin/`) and builds `.mdc` Cursor rule files.
 ai-persona/
 ├── AGENTS.md                        ← You are here
 ├── README.md                        ← Public catalog + install instructions
-├── .claude-plugin/                  ← Claude Code plugin + marketplace manifests
-│   ├── plugin.json
+├── .claude-plugin/                  ← Claude Code marketplace manifest
 │   └── marketplace.json
 ├── scripts/
 │   ├── build.sh                     ← Bundles SKILL.md + references → .mdc
 │   └── validate.sh                  ← Lints frontmatter, checks refs, verifies cursor-rules/
 ├── skills/
 │   └── <skill-name>/
+│       ├── .claude-plugin/           ← Per-skill plugin manifest (auto-generated)
+│       │   └── plugin.json
 │       ├── SKILL.md                 ← Source: frontmatter + instructions
 │       ├── README.md                ← Human-readable description + install guide
 │       ├── references/              ← Deep-dive reference docs (bundled into .mdc)
@@ -135,6 +136,8 @@ claude plugin install my-new-skill@ai-persona
 
 This produces:
 - `cursor-rules/my-new-skill.mdc` — built Cursor rule file
+- `skills/my-new-skill/.claude-plugin/plugin.json` — Claude Code plugin manifest
+- `.claude-plugin/marketplace.json` — updated marketplace catalog
 
 ### 6. Validate
 
@@ -149,24 +152,20 @@ All checks must pass: frontmatter fields present, reference links valid, cursor-
 Add a row to the skills table in the root `README.md`:
 
 ```markdown
-| [my-new-skill](skills/my-new-skill/) | One-line description | [↓ curl](#install) |
+| [my-new-skill](skills/my-new-skill/) | One-line description | [README](skills/my-new-skill/README.md) |
 ```
 
-Add install commands under the install sections of the root `README.md`.
-Follow the existing k8s-operator entries as a template for:
-- Claude Code plugin marketplace (automatic via the repo plugin)
-- Claude Code manual skill install (curl commands for SKILL.md + references)
-- Cursor skill install (curl commands for SKILL.md + references)
-- Cursor rule install (single .mdc from cursor-rules/)
+Skill-specific installation commands belong in the skill's own `README.md`, not in the root README.
+The root README only has generic install patterns (marketplace add, curl overview) and links to each skill's README.
 
 ### 8. Commit
 
 ```bash
-git add skills/my-new-skill/ cursor-rules/my-new-skill.mdc README.md
+git add skills/my-new-skill/ cursor-rules/my-new-skill.mdc .claude-plugin/marketplace.json README.md
 git commit -m "feat: add my-new-skill"
 ```
 
-Commit `cursor-rules/` files so curl installs work without a build step.
+Commit `cursor-rules/` and `.claude-plugin/` files so curl installs and plugin installs work without a build step.
 CI will also auto-rebuild on push to main as a safety net.
 
 ---
@@ -215,6 +214,8 @@ Add an entry to the MCPs table (create the table if it doesn't exist yet).
 
 - Extracts frontmatter from `SKILL.md` (handles YAML folded/block scalars)
 - Generates `.mdc` Cursor rule file: frontmatter (`description`, `globs`, `alwaysApply`) + body + inlined references
+- Generates `skills/<name>/.claude-plugin/plugin.json` per-skill plugin manifest
+- Regenerates `.claude-plugin/marketplace.json` marketplace catalog
 - Outputs to `cursor-rules/<name>.mdc`
 
 ### `scripts/validate.sh`
