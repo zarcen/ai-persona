@@ -91,7 +91,7 @@ ai-persona/
 │   ├── build.sh                 # Regenerate marketplace catalogs
 │   └── validate.sh              # Lint manifests, skills, references
 └── .github/workflows/
-    └── build.yml                # Auto-rebuild on push to main
+    └── build.yml                # CI
 ```
 
 ---

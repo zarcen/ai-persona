@@ -1,0 +1,31 @@
+=== Kubebuilder Sample Verification Report ===
+Cluster:   kind-my-operator-a3f1c2
+CRDs:      2 installed
+Samples:   3 checked
+
+PASSED (1):
+  ✓ config/samples/apps_v1alpha1_myapp_minimal.yaml
+
+FAILED (2):
+  ✗ config/samples/apps_v1alpha1_myapp.yaml
+      Error from server: error when creating "config/samples/apps_v1alpha1_myapp.yaml":
+      MyApp.apps.example.com "myapp-sample" is invalid:
+        spec.replicas: Invalid value: "string": spec.replicas in body must be of type integer: "string"
+
+  ✗ config/samples/apps_v1alpha1_myapp_full.yaml
+      Error from server: error when creating "config/samples/apps_v1alpha1_myapp_full.yaml":
+      MyApp.apps.example.com "myapp-full" is invalid:
+        spec.image: Required value
+        spec.unknownField: Forbidden: unknown field
+
+=== Summary ===
+  Passed: 1 / 3
+  Failed: 2 / 3
+
+--- Analysis ---
+
+| Sample                        | Kind  | Error                                   | Likely Cause                                      | Suggested Fix                              |
+|-------------------------------|-------|-----------------------------------------|---------------------------------------------------|--------------------------------------------|
+| apps_v1alpha1_myapp.yaml      | MyApp | spec.replicas: must be integer          | Field type changed from string to int32 in CRD    | Change replicas: "2" → replicas: 2         |
+| apps_v1alpha1_myapp_full.yaml | MyApp | spec.image: Required value              | New required field added to CRD                   | Add spec.image: "nginx:latest" to sample   |
+| apps_v1alpha1_myapp_full.yaml | MyApp | spec.unknownField: Forbidden            | Field removed from CRD schema                     | Remove spec.unknownField from sample       |

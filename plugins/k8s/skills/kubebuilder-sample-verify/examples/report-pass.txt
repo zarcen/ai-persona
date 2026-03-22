@@ -1,0 +1,13 @@
+=== Kubebuilder Sample Verification Report ===
+Cluster:   kind-my-operator-a3f1c2
+CRDs:      2 installed
+Samples:   3 checked
+
+PASSED (3):
+  ✓ config/samples/apps_v1alpha1_myapp.yaml
+  ✓ config/samples/apps_v1alpha1_myapp_minimal.yaml
+  ✓ config/samples/apps_v1alpha1_myapp_full.yaml
+
+=== Summary ===
+  Passed: 3 / 3
+  Failed: 0 / 3

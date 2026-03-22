@@ -1,0 +1,20 @@
+# kind-config.yaml — standard single-node kind cluster config used by kubebuilder-sample-verify.
+#
+# This is intentionally minimal: one control-plane node is sufficient for CRD installation
+# and dry-run server-side validation. No worker nodes are needed since no pods are scheduled.
+#
+# Adjust featureGates if your CRDs use alpha/beta API features.
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ""  # overridden by --name flag in create-cluster.sh
+
+nodes:
+  - role: control-plane
+    # Pin the node image via --image flag; do not hardcode here so the script controls the version.
+
+networking:
+  # Disable default CNI — not needed for dry-run validation only
+  disableDefaultCNI: false
+
+featureGates: {}
