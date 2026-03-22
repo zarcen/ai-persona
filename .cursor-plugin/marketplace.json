@@ -13,7 +13,7 @@
       "name": "k8s",
       "source": "./plugins/k8s",
       "description": "Kubernetes development skills — operators, controllers, CRDs, client-go, and envtest-based testing with kubebuilder and controller-runtime.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     }
   ]
 }
