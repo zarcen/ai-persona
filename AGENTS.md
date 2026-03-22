@@ -214,7 +214,7 @@ ln -s ~/.codex/ai-persona/plugins/<plugin-name>/skills ~/.agents/skills/<plugin-
 
 ### 8. Update root README.md
 
-Add a row to the plugins table in the root `README.md`.
+Add a row to the plugins table in the root `README.md`. The table has only two columns — Plugin and Description — do **not** list individual skills there. Skills are listed in the plugin's own README.
 
 ### 9. Commit
 

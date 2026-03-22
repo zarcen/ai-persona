@@ -6,9 +6,9 @@ A marketplace of portable agent plugins — skills, hooks, and rules for AI codi
 
 ## Plugins
 
-| Plugin | Skills | Description |
-|--------|--------|-------------|
-| [k8s](plugins/k8s/) | [k8s-operator](plugins/k8s/skills/k8s-operator/) | Kubernetes development — operators, CRDs, controllers, client-go, envtest |
+| Plugin | Description |
+|--------|-------------|
+| [k8s](plugins/k8s/) | Kubernetes development — operators, CRDs, controllers, client-go, envtest |
 
 > See each plugin's README for full installation instructions.
 
