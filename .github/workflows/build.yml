@@ -1,4 +1,4 @@
-name: Build & Validate Skills
+name: Build & Validate Plugins
 
 on:
   push:
@@ -20,10 +20,10 @@ jobs:
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
 
-      - name: Build all skills
+      - name: Build all plugins
         run: ./scripts/build.sh
 
-      - name: Validate all skills
+      - name: Validate all plugins
         run: ./scripts/validate.sh
 
       - name: Lint skills (skill-validator)
@@ -31,7 +31,7 @@ jobs:
         run: |
           go install github.com/agent-ecosystem/skill-validator/cmd/skill-validator@latest
           export PATH="$(go env GOPATH)/bin:$PATH"
-          for skill_dir in skills/*/; do
+          for skill_dir in plugins/*/skills/*/; do
             [ -d "$skill_dir" ] || continue
             echo "▶ Validating $skill_dir"
             skill-validator validate structure "$skill_dir" --emit-annotations
@@ -43,6 +43,6 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add cursor-rules/ plugins/ .claude-plugin/marketplace.json
-          git diff --cached --quiet || git commit -m "chore: rebuild cursor-rules/ + plugins/ [skip ci]"
+          git add .claude-plugin/marketplace.json .cursor-plugin/marketplace.json
+          git diff --cached --quiet || git commit -m "chore: rebuild marketplace catalogs [skip ci]"
           git push

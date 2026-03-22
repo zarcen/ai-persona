@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 # scripts/build.sh
-# Builds agent-specific artifacts from skill sources in skills/.
+# Generates root marketplace catalog files from authored plugin manifests.
 #
 # Usage:
-#   ./scripts/build.sh               # build all skills
-#   ./scripts/build.sh k8s-operator  # build one skill
+#   ./scripts/build.sh               # build all plugins
+#   ./scripts/build.sh k8s           # build one plugin
 #
-# Source:
-#   skills/<name>/SKILL.md + references/       (author here)
+# Source (author these — never generated):
+#   plugins/<name>/.claude-plugin/plugin.json
+#   plugins/<name>/.cursor-plugin/plugin.json
+#   plugins/<name>/skills/<skill>/SKILL.md + references/
 #
-# Output (all derived / committed):
-#   cursor-rules/<name>.mdc                    (Cursor rule file)
-#   plugins/<name>/                            (Claude Code plugin — symlinks into skills/)
+# Output (generated / committed):
 #   .claude-plugin/marketplace.json            (Claude Code marketplace catalog)
+#   .cursor-plugin/marketplace.json            (Cursor marketplace catalog)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILLS_DIR="$REPO_ROOT/skills"
 PLUGINS_DIR="$REPO_ROOT/plugins"
-CURSOR_RULES_DIR="$REPO_ROOT/cursor-rules"
-MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
+CLAUDE_MARKETPLACE_JSON="$REPO_ROOT/.claude-plugin/marketplace.json"
+CURSOR_MARKETPLACE_JSON="$REPO_ROOT/.cursor-plugin/marketplace.json"
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -28,219 +28,136 @@ log()  { echo "▶ $*"; }
 ok()   { echo "✓ $*"; }
 err()  { echo "✗ $*" >&2; exit 1; }
 
-# Extract a YAML frontmatter field from SKILL.md (handles folded/block scalars)
-# Joins continuation lines with spaces for folded (>) or newlines for literal (|).
-# Usage: extract_field <field> <file>
-extract_field() {
-  local field="$1" file="$2"
-  awk "
-    /^---/{ if(p) exit; p=1; next }
-    p && /^${field}:/{
-      sub(/^${field}:[[:space:]]*/,\"\")
-      folded = sub(/^>[[:space:]]*/,\"\")
-      if(length(\$0)>0){ print; exit }
-      result = \"\"
-      while((getline line)>0){
-        if(line ~ /^[[:space:]]+/){
-          sub(/^[[:space:]]*/,\"\",line)
-          if(result != \"\") result = result \" \"
-          result = result line
-        } else break
-      }
-      print result
-      exit
-    }
-  " "$file" | tr -d '\"'
-}
-
-# Escape a string for safe JSON embedding
-json_escape() {
-  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g'
-}
-
-# Build a single skill into agent-specific artifacts:
-#   cursor-rules/<name>.mdc           (Cursor)
-#   plugins/<name>/                   (Claude Code — plugin.json + symlink)
-build_skill() {
-  local skill_dir="$1"
+# Validate a single plugin directory has required authored files.
+check_plugin() {
+  local plugin_dir="$1"
   local name
-  name="$(basename "$skill_dir")"
-  local skill_md="$skill_dir/SKILL.md"
-  local refs_dir="$skill_dir/references"
-  local mdc_file="$CURSOR_RULES_DIR/${name}.mdc"
+  name="$(basename "$plugin_dir")"
 
-  log "Building $name ..."
+  [[ -f "$plugin_dir/.claude-plugin/plugin.json" ]] \
+    || err "$name: missing .claude-plugin/plugin.json — author this file"
+  [[ -f "$plugin_dir/.cursor-plugin/plugin.json" ]] \
+    || err "$name: missing .cursor-plugin/plugin.json — author this file"
 
-  [[ -f "$skill_md" ]] || err "Missing SKILL.md in $skill_dir"
-
-  local description
-  description="$(extract_field description "$skill_md")"
-  [[ -n "$description" ]] || err "$name: could not extract 'description' from SKILL.md frontmatter"
-
-  # ── write .mdc (Cursor rule) ───────────────────────────────────────────────
-  {
-    printf -- "---\n"
-    printf "description: %s\n" "$description"
-    printf "globs:\n"
-
-    local globs_raw
-    globs_raw="$(awk '/^---/{if(p)exit; p=1; next} p && /^globs:/,/^[^ ]/' "$skill_md" \
-      | grep '^\s*-' || true)"
-
-    if [[ -n "$globs_raw" ]]; then
-      echo "$globs_raw"
-    else
-      printf '  - "**/*.go"\n'
-      printf '  - "**/*.yaml"\n'
-    fi
-
-    printf "alwaysApply: false\n"
-    printf -- "---\n\n"
-
-    awk '/^---/{if(p)exit; p=1; next} p' "$skill_md"
-
-    if [[ -d "$refs_dir" ]]; then
-      for ref in "$refs_dir"/*.md; do
-        [[ -f "$ref" ]] || continue
-        printf "\n\n---\n\n"
-        cat "$ref"
-      done
-    fi
-  } > "$mdc_file"
-
-  ok "$name → cursor-rules/${name}.mdc"
-
-  # ── write plugins/<name>/ (Claude Code plugin) ────────────────────────────
-  local plugin_root="$PLUGINS_DIR/$name"
-  local plugin_meta="$plugin_root/.claude-plugin"
-  local plugin_skills="$plugin_root/skills"
-
-  mkdir -p "$plugin_meta" "$plugin_skills"
-
-  local desc_escaped
-  desc_escaped="$(json_escape "$description")"
-
-  cat > "$plugin_meta/plugin.json" <<EOF
-{
-  "name": "${name}",
-  "description": "${desc_escaped}",
-  "author": {
-    "name": "zarcen"
-  },
-  "homepage": "https://github.com/zarcen/ai-persona/tree/main/skills/${name}"
-}
-EOF
-
-  # Symlink: plugins/<name>/skills/<name> → ../../../skills/<name>
-  local link_target="$plugin_skills/$name"
-  rm -f "$link_target"
-  ln -s "../../../skills/$name" "$link_target"
-
-  ok "$name → plugins/${name}/ (plugin.json + skills/ symlink)"
+  # Ensure assets/logo.svg symlink exists
+  local logo="$plugin_dir/assets/logo.svg"
+  if [[ ! -L "$logo" ]]; then
+    mkdir -p "$plugin_dir/assets"
+    rm -f "$logo"
+    ln -s "../../../logo.svg" "$logo"
+    ok "$name → created assets/logo.svg symlink"
+  fi
 }
 
-# Regenerate .claude-plugin/marketplace.json from all skill directories.
-# Merges into the existing file so manually-added fields are preserved.
+# Regenerate root marketplace JSON files from all authored plugin manifests.
 build_marketplace() {
-  log "Generating marketplace.json ..."
+  log "Generating marketplace.json files ..."
 
-  mkdir -p "$(dirname "$MARKETPLACE_JSON")"
+  mkdir -p "$(dirname "$CLAUDE_MARKETPLACE_JSON")" "$(dirname "$CURSOR_MARKETPLACE_JSON")"
 
-  # Collect skill names and descriptions into a temp file (tab-separated)
-  local tmpfile
-  tmpfile="$(mktemp)"
-
-  for skill_dir in "$SKILLS_DIR"/*/; do
-    [[ -d "$skill_dir" ]] || continue
-    local name
-    name="$(basename "$skill_dir")"
-    local skill_md="$skill_dir/SKILL.md"
-    [[ -f "$skill_md" ]] || continue
-
-    local description
-    description="$(extract_field description "$skill_md")"
-    printf '%s\t%s\n' "$name" "$description" >> "$tmpfile"
-  done
-
-  local count
-  count="$(python3 - "$MARKETPLACE_JSON" "$tmpfile" <<'PYEOF'
+  python3 - "$PLUGINS_DIR" "$CLAUDE_MARKETPLACE_JSON" "$CURSOR_MARKETPLACE_JSON" <<'PYEOF'
 import json, sys, os
 
-marketplace_path = sys.argv[1]
-data_file = sys.argv[2]
+plugins_dir       = sys.argv[1]
+claude_path       = sys.argv[2]
+cursor_path       = sys.argv[3]
 
-generated = {}
-with open(data_file) as f:
-    for line in f:
-        line = line.rstrip("\n")
-        if "\t" not in line:
-            continue
-        name, desc = line.split("\t", 1)
-        generated[name] = desc
+def load_or_default(path, default):
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return default
 
-if os.path.exists(marketplace_path):
-    with open(marketplace_path) as f:
-        marketplace = json.load(f)
-else:
-    marketplace = {
-        "name": "ai-persona",
-        "owner": {"name": "zarcen"},
-        "metadata": {"description": "Reusable agent skills for AI coding agents"},
-        "plugins": []
-    }
+# Collect plugin entries by reading authored plugin.json files
+claude_entries = []
+cursor_entries = []
 
-marketplace = {k: v for k, v in marketplace.items() if k != "//"}
+for name in sorted(os.listdir(plugins_dir)):
+    plugin_dir = os.path.join(plugins_dir, name)
+    if not os.path.isdir(plugin_dir):
+        continue
 
-existing_by_name = {}
-for plugin in marketplace.get("plugins", []):
-    existing_by_name[plugin["name"]] = plugin
+    claude_json = os.path.join(plugin_dir, ".claude-plugin", "plugin.json")
+    cursor_json = os.path.join(plugin_dir, ".cursor-plugin", "plugin.json")
 
-new_plugins = []
-for name in sorted(generated):
-    if name in existing_by_name:
-        entry = existing_by_name[name]
-        entry["description"] = generated[name]
-        entry["source"] = "./plugins/" + name
-        new_plugins.append(entry)
-    else:
-        new_plugins.append({
-            "name": name,
-            "source": "./plugins/" + name,
-            "description": generated[name],
-            "version": "1.0.0"
-        })
+    if not os.path.exists(claude_json) or not os.path.exists(cursor_json):
+        continue
 
-marketplace["plugins"] = new_plugins
+    with open(claude_json) as f:
+        cp = json.load(f)
+    with open(cursor_json) as f:
+        crp = json.load(f)
 
-with open(marketplace_path, "w") as f:
-    json.dump(marketplace, f, indent=2, ensure_ascii=False)
+    claude_entries.append({
+        "name": cp["name"],
+        "source": f"./plugins/{name}",
+        "description": cp.get("description", ""),
+        "version": crp.get("version", "1.0.0")
+    })
+    cursor_entries.append({
+        "name": crp["name"],
+        "source": f"./plugins/{name}",
+        "description": crp.get("description", "")
+    })
+
+# ── Claude Code marketplace ───────────────────────────────────────────────
+claude = load_or_default(claude_path, {
+    "name": "ai-persona",
+    "owner": {"name": "zarcen"},
+    "metadata": {"description": "Reusable agent skills for AI coding agents"},
+    "plugins": []
+})
+claude = {k: v for k, v in claude.items() if k != "//"}
+claude["plugins"] = claude_entries
+with open(claude_path, "w") as f:
+    json.dump(claude, f, indent=2, ensure_ascii=False)
     f.write("\n")
 
-print(len(new_plugins))
-PYEOF
-)"
+# ── Cursor marketplace ────────────────────────────────────────────────────
+cursor = load_or_default(cursor_path, {
+    "name": "ai-persona",
+    "owner": {"name": "zarcen"},
+    "metadata": {
+        "description": "Reusable agent skills for AI coding agents",
+        "version": "1.0.0",
+        "pluginRoot": "plugins"
+    },
+    "plugins": []
+})
+cursor = {k: v for k, v in cursor.items() if k != "//"}
+cursor["plugins"] = cursor_entries
+# Remove empty email field if present
+if isinstance(cursor.get("owner"), dict):
+    cursor["owner"].pop("email", None)
+    if not cursor["owner"].get("email"):
+        cursor["owner"] = {k: v for k, v in cursor["owner"].items() if v}
+with open(cursor_path, "w") as f:
+    json.dump(cursor, f, indent=2, ensure_ascii=False)
+    f.write("\n")
 
-  rm -f "$tmpfile"
-  ok "marketplace.json (${count} plugin(s))"
+print(f"{len(claude_entries)} plugin(s)")
+PYEOF
 }
 
 # ── main ───────────────────────────────────────────────────────────────────────
 
-mkdir -p "$CURSOR_RULES_DIR" "$PLUGINS_DIR"
-
 if [[ $# -eq 1 ]]; then
-  skill_dir="$SKILLS_DIR/$1"
-  [[ -d "$skill_dir" ]] || err "Skill '$1' not found in $SKILLS_DIR"
-  build_skill "$skill_dir"
+  plugin_dir="$PLUGINS_DIR/$1"
+  [[ -d "$plugin_dir" ]] || err "Plugin '$1' not found in $PLUGINS_DIR"
+  log "Checking $1 ..."
+  check_plugin "$plugin_dir"
+  ok "$1 looks good"
   build_marketplace
 else
   found=0
-  for skill_dir in "$SKILLS_DIR"/*/; do
-    [[ -d "$skill_dir" ]] || continue
-    build_skill "$skill_dir"
+  for plugin_dir in "$PLUGINS_DIR"/*/; do
+    [[ -d "$plugin_dir" ]] || continue
+    log "Checking $(basename "$plugin_dir") ..."
+    check_plugin "$plugin_dir"
+    ok "$(basename "$plugin_dir") looks good"
     found=$((found + 1))
   done
-  [[ $found -gt 0 ]] || err "No skill directories found in $SKILLS_DIR"
+  [[ $found -gt 0 ]] || err "No plugin directories found in $PLUGINS_DIR"
   build_marketplace
-  log "Built $found skill(s)."
+  log "Built $found plugin(s)."
 fi

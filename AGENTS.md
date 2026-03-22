@@ -1,18 +1,14 @@
 # AGENTS.md — Contributor Guide for AI Coding Agents
 
-This file tells AI coding agents (Claude Code, Cursor, etc.) how to work with this repo.
+This file tells AI coding agents (Claude Code, Cursor, Codex, etc.) how to work with this repo.
 
 ---
 
 ## Repo Purpose
 
-This is a monorepo of portable **agent skills** and **MCPs** (Model Context Protocol servers).
-Skills are markdown-based instruction sets that teach AI agents domain expertise.
-Each skill is authored as a `SKILL.md` with optional `references/` docs.
-
-The build system generates agent-specific artifacts:
-- `cursor-rules/` — `.mdc` Cursor rule files (SKILL.md + references bundled)
-- `plugins/` — Claude Code plugin directories (symlinks into `skills/`)
+This is **ai-persona** — a marketplace of portable agent plugins, each containing skills, hooks,
+and rules that teach AI agents domain expertise. Skills are markdown-based instruction sets
+(`SKILL.md`) with optional `references/` deep-dive docs.
 
 ---
 
@@ -20,198 +16,212 @@ The build system generates agent-specific artifacts:
 
 ```
 ai-persona/
-├── AGENTS.md                        ← You are here
-├── README.md                        ← Public catalog + install instructions
-├── .claude-plugin/                  ← Claude Code marketplace manifest
+├── AGENTS.md                            ← You are here
+├── README.md                            ← Public catalog + install instructions
+├── .claude-plugin/                      ← GENERATED — Claude Code marketplace catalog
 │   └── marketplace.json
-├── scripts/
-│   ├── build.sh                     ← Generates cursor-rules/ + plugins/
-│   └── validate.sh                  ← Lints frontmatter, checks refs, verifies artifacts
-├── skills/                          ← SOURCE: author skills here
-│   └── <skill-name>/
-│       ├── SKILL.md                 ← Source: frontmatter + instructions
-│       ├── README.md                ← Human-readable description + install guide
-│       └── references/              ← Deep-dive reference docs
-│           ├── topic-a.md
-│           └── topic-b.md
-├── plugins/                         ← BUILT: Claude Code plugin format (committed)
-│   └── <skill-name>/
+├── .cursor-plugin/                      ← GENERATED — Cursor marketplace catalog
+│   └── marketplace.json
+├── plugins/                             ← SOURCE — author plugins here
+│   └── <plugin-name>/
 │       ├── .claude-plugin/
-│       │   └── plugin.json          ← Generated plugin manifest
-│       └── skills/
-│           └── <skill-name> → ../../../skills/<skill-name>  (symlink)
-├── cursor-rules/                    ← BUILT: Cursor .mdc files (committed)
-│   └── <skill-name>.mdc
-├── mcps/                            ← MCP servers (coming soon)
-│   └── <mcp-name>/
-│       ├── README.md
-│       ├── server.py / index.ts     ← MCP server implementation
-│       └── mcp.json                 ← MCP manifest
+│       │   └── plugin.json              ← Claude Code manifest (authored)
+│       ├── .cursor-plugin/
+│       │   └── plugin.json              ← Cursor marketplace manifest (authored)
+│       ├── assets/
+│       │   └── logo.svg                 ← symlink to ../../../logo.svg (auto by build.sh)
+│       ├── README.md                    ← Plugin-level install guide (authored)
+│       ├── skills/
+│       │   └── <skill-name>/
+│       │       ├── SKILL.md             ← Source: frontmatter + instructions
+│       │       └── references/          ← Deep-dive reference docs (loaded on demand)
+│       ├── hooks/                       ← optional — hook definitions
+│       └── rules/                       ← optional — cursor rules (.mdc files)
+├── claude-config/                       ← Claude Code config (symlinked into ~/.claude/)
+│   ├── settings.json
+│   ├── install.sh
+│   └── statusline/
+├── scripts/
+│   ├── build.sh                         ← Regenerate marketplace catalogs
+│   └── validate.sh                      ← Lint manifests, skills, references, catalogs
 └── .github/workflows/
-    └── build.yml                    ← CI: build + validate + auto-commit artifacts
+    └── build.yml                        ← CI: build + validate + auto-commit catalogs
 ```
 
 ---
 
-## Adding a New Skill
+## Adding a New Plugin
 
-### 1. Scaffold the directory
+### 1. Scaffold the plugin directory
 
 ```bash
-SKILL_NAME="my-new-skill"
-mkdir -p "skills/${SKILL_NAME}/references"
+PLUGIN_NAME="my-plugin"
+mkdir -p "plugins/${PLUGIN_NAME}/{.claude-plugin,.cursor-plugin,assets,skills/my-skill/references}"
 ```
 
-### 2. Write `skills/<name>/SKILL.md`
+### 2. Author the plugin manifests
 
-This is the source of truth. It **must** have YAML frontmatter with at least `name` and `description`:
+**`plugins/<plugin-name>/.claude-plugin/plugin.json`** (Claude Code):
+```json
+{
+  "name": "my-plugin",
+  "description": "Short description of what this plugin provides.",
+  "author": { "name": "zarcen" },
+  "homepage": "https://github.com/zarcen/ai-persona/tree/main/plugins/my-plugin"
+}
+```
+
+**`plugins/<plugin-name>/.cursor-plugin/plugin.json`** (Cursor marketplace):
+```json
+{
+  "name": "my-plugin",
+  "displayName": "My Plugin",
+  "version": "1.0.0",
+  "description": "Short description of what this plugin provides.",
+  "author": { "name": "zarcen" },
+  "license": "MIT",
+  "keywords": ["tag1", "tag2"],
+  "logo": "assets/logo.svg"
+}
+```
+
+### 3. Write `plugins/<plugin-name>/skills/<skill-name>/SKILL.md`
+
+Required frontmatter fields: `name`, `description`.
 
 ```yaml
 ---
-name: my-new-skill
+name: my-skill
 description: >
   One paragraph that tells the agent WHEN to activate this skill.
   Be specific about trigger keywords, file types, and use cases.
-  The more precise, the better the agent triggers on it.
 parameters:
   some_param: "default_value"
-  another_param: true
-globs:                         # optional — file patterns that auto-trigger this skill
+globs:
   - "**/*.py"
-  - "**/Dockerfile"
 ---
 
-# My New Skill
+# My Skill
 
 You are an expert in <domain>. Follow these guidelines when ...
 
-## 1. Section Title
-
-<instructions, code examples, rules>
-
 ## Reference Files
 
-Load these when you need deeper coverage:
-
 - `references/topic-a.md` — description
-- `references/topic-b.md` — description
 ```
 
-**Frontmatter rules:**
-- `name` — lowercase, kebab-case, must match the directory name
-- `description` — use YAML folded scalar (`>`) for multi-line; this becomes the `.mdc` trigger text
-- `parameters` — optional key-value pairs users can override in their project
-- `globs` — optional list of file glob patterns; if omitted, `build.sh` defaults to `**/*.go` and `**/*.yaml`
-
-**Body rules:**
+**SKILL.md conventions:**
+- `name` — lowercase kebab-case, matches directory name
+- `description` — YAML folded scalar (`>`), used as agent trigger text
 - Write in second person ("You are an expert...", "Always use...", "Never do...")
-- Use numbered sections for major topics
-- Include concrete code examples — agents learn best from examples
-- Reference deep-dive docs as `references/<filename>.md`
-- End with a "Reference Files" section listing all references with one-line descriptions
+- Include concrete code examples
+- End with a "Reference Files" section if you have references
 
-### 3. Write reference docs (optional)
+### 4. Write reference docs (optional)
 
-Place detailed reference material in `skills/<name>/references/*.md`. These get bundled
-inline into the `.mdc` during build. Each reference file should be self-contained with
-its own title and table of contents.
-
-Keep individual reference files under ~300 lines. Split large topics into multiple files.
-
-### 4. Write `skills/<name>/README.md`
-
-A human-readable description of the skill for GitHub browsing. Include:
-- What the skill covers
-- Installation instructions (Cursor curl one-liner, Claude Code install)
-- Configuration / parameter overrides
-- File structure listing
-
-**Claude Code plugin install command format:**
-The syntax is `claude plugin install <plugin-name>@<marketplace-name>`.
-The marketplace name is `ai-persona` and the plugin name matches the skill name.
-For example, for a skill named `my-new-skill`:
-```bash
-claude plugin marketplace add zarcen/ai-persona
-claude plugin install my-new-skill@ai-persona
-```
+Place deep-dive material in `plugins/<plugin-name>/skills/<skill-name>/references/*.md`.
+Keep each file under ~300 lines. Split large topics into multiple files.
 
 ### 5. Build
 
 ```bash
-./scripts/build.sh my-new-skill
+./scripts/build.sh my-plugin
 ```
 
-This produces:
-- `cursor-rules/my-new-skill.mdc` — Cursor rule file
-- `plugins/my-new-skill/` — Claude Code plugin directory (symlinks into skills/)
-- `.claude-plugin/marketplace.json` — updated marketplace catalog
+This:
+- Creates `assets/logo.svg` symlink if missing
+- Regenerates `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json`
 
 ### 6. Validate
 
 ```bash
-./scripts/validate.sh my-new-skill
+./scripts/validate.sh my-plugin
 ```
 
-All checks must pass: frontmatter fields present, reference links valid, built artifacts exist.
+All checks must pass: manifests present and valid JSON, required fields, reference links valid.
 
-### 7. Update README.md
+### 7. Write `plugins/<plugin-name>/README.md`
 
-Add a row to the skills table in the root `README.md`:
+Every plugin must have a README at the plugin root. Follow this template exactly:
 
 ```markdown
-| [my-new-skill](skills/my-new-skill/) | One-line description | [README](skills/my-new-skill/README.md) |
-```
+# <Plugin Display Name> Plugin
 
-Skill-specific installation commands belong in the skill's own `README.md`, not in the root README.
-The root README only has generic install patterns (marketplace add, curl overview) and links to each skill's README.
+One-sentence description of what the plugin covers.
 
-### 8. Commit
+## Skills
 
-```bash
-git add skills/my-new-skill/ plugins/my-new-skill/ cursor-rules/my-new-skill.mdc .claude-plugin/marketplace.json README.md
-git commit -m "feat: add my-new-skill"
-```
-
-Commit `cursor-rules/`, `plugins/`, and `.claude-plugin/` files so curl installs and plugin installs work without a build step.
-CI will also auto-rebuild on push to main as a safety net.
+| Skill | Description |
+|-------|-------------|
+| [<skill-name>](skills/<skill-name>/) | One-line description |
 
 ---
 
-## Adding a New MCP
+## Installation
 
-> MCPs are under `mcps/` — this section is a placeholder for the upcoming structure.
+### Claude Code (Plugin — recommended)
 
-### 1. Scaffold
+​```bash
+claude plugin marketplace add zarcen/ai-persona
+claude plugin install <plugin-name>@ai-persona
+​```
+
+### Claude Code (manual)
+
+​```bash
+# Download a skill folder and place it under .claude/skills/
+gh repo clone zarcen/ai-persona /tmp/ai-persona && cp -r /tmp/ai-persona/plugins/<plugin-name>/skills/<skill-name> .claude/skills/
+​```
+
+### Cursor (Marketplace Plugin — recommended)
+
+Install via the Cursor Marketplace using the `.cursor-plugin/marketplace.json` in this repo.
+
+### Cursor (manual)
+
+​```bash
+# Download a skill folder and place it under .cursor/skills/
+gh repo clone zarcen/ai-persona /tmp/ai-persona && cp -r /tmp/ai-persona/plugins/<plugin-name>/skills/<skill-name> .cursor/skills/
+​```
+
+### Codex
+
+​```bash
+ln -s ~/.codex/ai-persona/plugins/<plugin-name>/skills ~/.agents/skills/<plugin-name>
+​```
+
+---
+
+## File Structure
+
+​```
+<plugin-name>/
+├── .claude-plugin/plugin.json       # Claude Code manifest
+├── .cursor-plugin/plugin.json       # Cursor marketplace manifest
+├── assets/logo.svg
+└── skills/
+    └── <skill-name>/
+        ├── SKILL.md                 # Main skill (frontmatter + instructions)
+        └── references/              # Deep-dive reference docs
+            └── *.md
+​```
+```
+
+**Rules:**
+- Manual install uses `gh repo clone` + `cp -r` — never enumerate individual files
+- One README per plugin, no README inside individual skill directories
+- Keep the section order: Skills table → Installation → File Structure
+
+### 8. Update root README.md
+
+Add a row to the plugins table in the root `README.md`.
+
+### 9. Commit
 
 ```bash
-MCP_NAME="my-mcp"
-mkdir -p "mcps/${MCP_NAME}"
+git add plugins/my-plugin .claude-plugin/marketplace.json .cursor-plugin/marketplace.json README.md
+git commit -m "feat: add my-plugin"
 ```
-
-### 2. Create the MCP server
-
-Implement the server in `mcps/<name>/server.py` (Python) or `mcps/<name>/index.ts` (TypeScript).
-
-### 3. Create `mcps/<name>/mcp.json`
-
-```json
-{
-  "name": "my-mcp",
-  "description": "What this MCP does",
-  "version": "0.1.0",
-  "transport": "stdio",
-  "command": "python",
-  "args": ["server.py"]
-}
-```
-
-### 4. Create `mcps/<name>/README.md`
-
-Document setup, dependencies, and usage.
-
-### 5. Update root README.md
-
-Add an entry to the MCPs table (create the table if it doesn't exist yet).
 
 ---
 
@@ -219,37 +229,43 @@ Add an entry to the MCPs table (create the table if it doesn't exist yet).
 
 ### `scripts/build.sh`
 
-- Reads `skills/<name>/SKILL.md` as the source of truth
-- Generates `cursor-rules/<name>.mdc`: frontmatter (`description`, `globs`, `alwaysApply`) + body + inlined references
-- Generates `plugins/<name>/`: `.claude-plugin/plugin.json` + `skills/<name>` symlink back to source
-- Regenerates `.claude-plugin/marketplace.json` marketplace catalog
+- Iterates `plugins/*/` and reads authored `.claude-plugin/plugin.json` and `.cursor-plugin/plugin.json`
+- Ensures `assets/logo.svg` symlink exists in each plugin
+- Regenerates `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json`
+
+Plugin manifests (`plugin.json`) are **authored directly** — they are never auto-generated.
 
 ### `scripts/validate.sh`
 
-Checks:
-- `SKILL.md` exists with required `name` and `description` frontmatter
-- All `references/*.md` files exist
-- Cross-references in `SKILL.md` (e.g. `references/foo.md`) resolve to real files
-- `cursor-rules/<name>.mdc` exists and is non-empty
-- `plugins/<name>/` has valid `plugin.json` and working symlink
+Checks per plugin:
+- `.claude-plugin/plugin.json` — exists, valid JSON
+- `.cursor-plugin/plugin.json` — exists, valid JSON, required fields (`name`, `displayName`, `description`)
+- `assets/logo.svg` symlink — exists and resolves
+- At least one `skills/*/SKILL.md` with required frontmatter (`name`, `description`)
+- All `references/` cross-links in SKILL.md resolve to real files
+
+Checks globally:
+- `.claude-plugin/marketplace.json` — valid JSON, entry for every plugin
+- `.cursor-plugin/marketplace.json` — valid JSON, entry for every plugin
 
 ### CI (`.github/workflows/build.yml`)
 
 On every push/PR to `main`:
-1. Builds all skills
-2. Validates all skills
-3. On main branch pushes: auto-commits rebuilt artifacts with `[skip ci]`
+1. Builds all plugins (regenerates marketplace catalogs)
+2. Validates all plugins
+3. Lints skills with `skill-validator` (non-blocking)
+4. On main branch pushes: auto-commits updated marketplace catalogs with `[skip ci]`
 
 ---
 
 ## Conventions
 
+- **Plugin names**: lowercase kebab-case (e.g. `k8s`, `react`, `python-data`)
 - **Skill names**: lowercase kebab-case (e.g. `k8s-operator`, `react-testing`)
 - **One skill per directory**: never nest skills
-- **Source in skills/**: always author in `skills/`, never edit `plugins/` or `cursor-rules/` directly
-- **Commit built artifacts**: always commit `plugins/`, `cursor-rules/`, and `.claude-plugin/` so installs work without CI
-- **No secrets**: never put API keys, tokens, or credentials in skill files
-- **Idempotent builds**: running `build.sh` twice produces identical output
+- **Plugin manifests are authored**: edit `.claude-plugin/plugin.json` and `.cursor-plugin/plugin.json` directly
+- **Commit marketplace catalogs**: always commit `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json`
+- **No secrets**: never put API keys, tokens, or credentials in any file
 - **Test locally**: always run `validate.sh` before pushing
 
 ---
@@ -258,11 +274,10 @@ On every push/PR to `main`:
 
 | Task | Command |
 |------|---------|
-| Build all skills | `./scripts/build.sh` |
-| Build one skill | `./scripts/build.sh <name>` |
+| Build all plugins | `./scripts/build.sh` |
+| Build one plugin | `./scripts/build.sh <name>` |
 | Validate all | `./scripts/validate.sh` |
 | Validate one | `./scripts/validate.sh <name>` |
-| Install in Claude Code (plugin) | `claude plugin marketplace add zarcen/ai-persona` then `claude plugin install <name>@ai-persona` |
-| Install in Claude Code (manual) | `cp -r skills/<name>/ .claude/skills/<name>/` |
-| Install in Cursor (skill) | `cp -r skills/<name>/ .cursor/skills/<name>/` |
-| Install in Cursor (rule) | `curl -o .cursor/rules/<name>.mdc https://raw.githubusercontent.com/zarcen/ai-persona/main/cursor-rules/<name>.mdc` |
+| Install (Claude Code plugin) | `claude plugin marketplace add zarcen/ai-persona` then `claude plugin install <plugin>@ai-persona` |
+| Install (Cursor marketplace) | Install via Cursor Marketplace using `.cursor-plugin/marketplace.json` |
+| Install (Codex) | `ln -s ~/.codex/ai-persona/plugins/<name>/skills ~/.agents/skills/<name>` |

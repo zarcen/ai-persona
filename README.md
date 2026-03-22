@@ -1,50 +1,68 @@
 # ai-persona
 
-A monorepo of reusable agent skills and MCPs for Claude Code, Cursor, and other AI coding agents.
+A marketplace of portable agent plugins — skills, hooks, and rules for AI coding agents, version-controlled and shareable across tools and machines.
 
 ---
 
-## Skills
+## Plugins
 
-| Skill | Description | Install |
-|-------|-------------|---------|
-| [k8s-operator](skills/k8s-operator/) | Kubernetes operator development with kubebuilder — CRDs, reconcilers, client-go, testing | [README](skills/k8s-operator/README.md) |
+| Plugin | Skills | Description |
+|--------|--------|-------------|
+| [k8s](plugins/k8s/) | [k8s-operator](plugins/k8s/skills/k8s-operator/) | Kubernetes development — operators, CRDs, controllers, client-go, envtest |
 
-> See each skill's README for detailed installation instructions.
+> See each plugin's README for full installation instructions.
 
 ---
 
-## Install Overview
+## Install
 
-### Claude Code (as a Plugin — recommended)
-
-Add the marketplace once, then install any skill by name:
+### Claude Code (Plugin — recommended)
 
 ```bash
 claude plugin marketplace add zarcen/ai-persona
-claude plugin install <skill-name>@ai-persona
+claude plugin install <plugin-name>@ai-persona
 ```
 
-### Claude Code (manual — curl)
+### Claude Code (manual)
 
-Copy the skill's `SKILL.md` and `references/` directory into `.claude/skills/<skill-name>/`.
-See each skill's README for exact commands.
+```bash
+gh repo clone zarcen/ai-persona /tmp/ai-persona
+cp -r /tmp/ai-persona/plugins/<plugin-name>/skills/<skill-name> .claude/skills/
+```
 
-### Cursor (as a Skill — recommended)
+### Cursor (Marketplace Plugin — recommended)
 
-Copy the skill's `SKILL.md` and `references/` directory into `.cursor/skills/<skill-name>/`.
-The agent sees the skill description and loads it on demand when your task is relevant.
-See each skill's README for exact commands.
+Install via the Cursor Marketplace using `.cursor-plugin/marketplace.json` in this repo.
 
-### Cursor (as a Rule — alternative)
+### Cursor (manual)
 
-Download the pre-built `.mdc` file from `cursor-rules/` into `.cursor/rules/`.
-This bundles everything into one file, auto-injected on matching file patterns.
-See each skill's README for exact commands.
+```bash
+gh repo clone zarcen/ai-persona /tmp/ai-persona
+cp -r /tmp/ai-persona/plugins/<plugin-name>/skills/<skill-name> .cursor/skills/
+```
 
-### Generic (any agent that reads markdown)
+### Codex
 
-Copy `SKILL.md` and the `references/` folder into your agent's skills or rules directory.
+```bash
+git clone https://github.com/zarcen/ai-persona.git ~/.codex/ai-persona
+mkdir -p ~/.agents/skills
+ln -s ~/.codex/ai-persona/plugins/<plugin-name>/skills ~/.agents/skills/<plugin-name>
+```
+
+---
+
+## Tool Config
+
+Per-tool config files symlinked from this repo — `git pull` on any machine instantly applies changes.
+
+```bash
+git clone https://github.com/zarcen/ai-persona.git
+sh ai-persona/claude-config/install.sh   # Claude Code statusline
+```
+
+| Tool | Config | Description |
+|------|--------|-------------|
+| Claude Code | [statusline](claude-config/statusline/) | Custom statusline: working directory, model name, context window usage |
 
 ---
 
@@ -52,87 +70,37 @@ Copy `SKILL.md` and the `references/` folder into your agent's skills or rules d
 
 ```
 ai-persona/
-├── .claude-plugin/              # Claude Code marketplace manifest
+├── .claude-plugin/              # GENERATED — Claude Code marketplace catalog
 │   └── marketplace.json
-├── skills/                      # SOURCE — author skills here
-│   └── <skill-name>/
-│       ├── SKILL.md             # Source — frontmatter + instructions
-│       ├── README.md            # Human-readable install guide
-│       └── references/          # Deep-dive reference docs (loaded on demand)
-├── plugins/                     # BUILT — Claude Code plugin format (symlinks into skills/)
-│   └── <skill-name>/
-│       ├── .claude-plugin/
-│       │   └── plugin.json
-│       └── skills/
-│           └── <skill-name> → symlink to skills/<skill-name>
-├── cursor-rules/                # BUILT — .mdc files (SKILL.md + references bundled)
+├── .cursor-plugin/              # GENERATED — Cursor marketplace catalog
+│   └── marketplace.json
+├── plugins/                     # SOURCE — author plugins here
+│   └── <plugin-name>/
+│       ├── .claude-plugin/plugin.json   # Claude Code manifest (authored)
+│       ├── .cursor-plugin/plugin.json   # Cursor marketplace manifest (authored)
+│       ├── assets/logo.svg              # symlink to repo root logo.svg
+│       ├── README.md                    # Plugin install guide
+│       ├── skills/
+│       │   └── <skill-name>/
+│       │       ├── SKILL.md             # frontmatter + instructions
+│       │       └── references/          # deep-dive docs (loaded on demand)
+│       ├── hooks/                       # optional
+│       └── rules/                       # optional
+├── claude-config/               # Claude Code config (symlinked into ~/.claude/)
 ├── scripts/
-│   ├── build.sh                 # Regenerate plugins/ + cursor-rules/ + marketplace
-│   └── validate.sh              # Lint frontmatter + check built artifacts
+│   ├── build.sh                 # Regenerate marketplace catalogs
+│   └── validate.sh              # Lint manifests, skills, references
 └── .github/workflows/
     └── build.yml                # Auto-rebuild on push to main
 ```
 
 ---
 
-## Adding a New Skill
+## Contributing
+
+See [AGENTS.md](AGENTS.md) for the full contributor guide — plugin/skill conventions, manifest formats, and the step-by-step workflow for adding new plugins.
 
 ```bash
-# 1. Scaffold
-mkdir -p skills/my-skill/references
-
-# 2. Write the skill
-#    skills/my-skill/SKILL.md       ← frontmatter (name, description, parameters) + main body
-#    skills/my-skill/references/    ← optional deep-dive docs
-#    skills/my-skill/README.md      ← human-readable install guide
-
-# 3. Build (generates .mdc + plugin manifests)
-./scripts/build.sh my-skill
-
-# 4. Validate
-./scripts/validate.sh my-skill
-
-# 5. Commit (cursor-rules/ files are committed so curl installs work without a build step)
-git add skills/my-skill plugins/my-skill cursor-rules/my-skill.mdc README.md
-git commit -m "feat: add my-skill"
+./scripts/build.sh        # regenerate marketplace catalogs
+./scripts/validate.sh     # lint everything
 ```
-
-### SKILL.md frontmatter format
-
-```yaml
----
-name: my-skill
-description: >
-  One-paragraph description used as the agent trigger.
-  Be specific about when to use this skill. The more
-  precise, the better the agent will trigger on it.
-parameters:
-  some_param: "default_value"
-  another_param: true
----
-```
-
----
-
-## Adding an MCP
-
-MCPs live under `mcps/` (coming soon). Each MCP has its own directory with a `README.md`,
-server implementation, and any required config.
-
----
-
-## Local Development
-
-```bash
-# Build all skills (generates plugins/ + cursor-rules/ + marketplace)
-./scripts/build.sh
-
-# Build a single skill
-./scripts/build.sh k8s-operator
-
-# Validate (frontmatter, references, built artifacts)
-./scripts/validate.sh
-```
-
-CI (GitHub Actions) automatically rebuilds `cursor-rules/`, `plugins/`, and marketplace
-on every push to `main`.

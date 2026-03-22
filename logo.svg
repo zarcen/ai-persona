@@ -1,0 +1,17 @@
+<svg width="300" height="56" viewBox="0 0 300 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Liberation Mono', monospace; }
+  </style>
+
+  <!-- terminal prompt mark -->
+  <text class="mono" x="0" y="40" font-size="34" font-weight="600" fill="#6366f1">&gt;</text>
+
+  <!-- blinking cursor bar -->
+  <rect x="26" y="12" width="3" height="26" rx="1.5" fill="#6366f1" opacity="0.35"/>
+
+  <!-- ai — bold, accent -->
+  <text class="mono" x="38" y="40" font-size="34" font-weight="700" fill="#6366f1">ai</text>
+
+  <!-- -persona — light, muted -->
+  <text class="mono" x="79" y="40" font-size="34" font-weight="300" fill="#64748b">-persona</text>
+</svg>

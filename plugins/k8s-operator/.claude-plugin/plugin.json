@@ -1,8 +1,0 @@
-{
-  "name": "k8s-operator",
-  "description": "Expert guide for building Kubernetes operators with kubebuilder and controller-runtime. Covers CRD schema design, reconciler patterns, client-go usage, RBAC markers, webhooks, and envtest-based testing. Use when writing or reviewing Go code for Kubernetes operators.",
-  "author": {
-    "name": "zarcen"
-  },
-  "homepage": "https://github.com/zarcen/ai-persona/tree/main/skills/k8s-operator"
-}
