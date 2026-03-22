@@ -225,6 +225,40 @@ git commit -m "feat: add my-plugin"
 
 ---
 
+## Bumping a Plugin Version
+
+Both plugin manifests must declare the same `version` — `validate.sh` fails if they differ.
+
+### 1. Edit version in both manifests
+
+```bash
+# plugins/<name>/.claude-plugin/plugin.json
+# plugins/<name>/.cursor-plugin/plugin.json
+# Set "version" to the new value in both files.
+```
+
+### 2. Rebuild and validate
+
+```bash
+./scripts/build.sh <name>     # regenerates marketplace catalogs with the new version
+./scripts/validate.sh <name>  # confirms versions are consistent and catalogs are correct
+```
+
+### 3. Commit
+
+```bash
+git add plugins/<name>/.claude-plugin/plugin.json \
+        plugins/<name>/.cursor-plugin/plugin.json \
+        .claude-plugin/marketplace.json \
+        .cursor-plugin/marketplace.json
+git commit -m "chore(<name>): bump version to x.y.z"
+```
+
+> CI rebuilds and re-commits the marketplace catalogs automatically on push to `main`,
+> so steps 2–3 for the catalog files are handled for you if you push directly.
+
+---
+
 ## Build System
 
 ### `scripts/build.sh`

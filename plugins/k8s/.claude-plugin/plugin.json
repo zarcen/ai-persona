@@ -1,5 +1,6 @@
 {
   "name": "k8s",
+  "version": "1.0.1",
   "description": "Kubernetes development skills — operators, controllers, CRDs, client-go, and envtest-based testing with kubebuilder and controller-runtime.",
   "author": {
     "name": "zarcen"

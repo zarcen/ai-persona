@@ -88,16 +88,20 @@ for name in sorted(os.listdir(plugins_dir)):
     with open(cursor_json) as f:
         crp = json.load(f)
 
+    if "version" not in cp:
+        print(f"ERROR: {name}/.claude-plugin/plugin.json missing 'version' field", file=sys.stderr)
+        sys.exit(1)
     claude_entries.append({
         "name": cp["name"],
         "source": f"./plugins/{name}",
         "description": cp.get("description", ""),
-        "version": crp.get("version", "1.0.0")
+        "version": cp["version"]
     })
     cursor_entries.append({
         "name": crp["name"],
         "source": f"./plugins/{name}",
-        "description": crp.get("description", "")
+        "description": crp.get("description", ""),
+        "version": crp.get("version", "")
     })
 
 # ── Claude Code marketplace ───────────────────────────────────────────────

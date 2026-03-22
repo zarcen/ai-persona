@@ -104,3 +104,24 @@ See [AGENTS.md](AGENTS.md) for the full contributor guide — plugin/skill conve
 ./scripts/build.sh        # regenerate marketplace catalogs
 ./scripts/validate.sh     # lint everything
 ```
+
+### Bumping a plugin version
+
+1. Edit `version` in **both** manifest files (must match — `validate.sh` will fail if they differ):
+   - `plugins/<name>/.claude-plugin/plugin.json`
+   - `plugins/<name>/.cursor-plugin/plugin.json`
+2. Rebuild and validate:
+   ```bash
+   ./scripts/build.sh <name>
+   ./scripts/validate.sh <name>
+   ```
+3. Commit everything — marketplace catalogs are updated by `build.sh` and must be committed alongside the manifests:
+   ```bash
+   git add plugins/<name>/.claude-plugin/plugin.json \
+           plugins/<name>/.cursor-plugin/plugin.json \
+           .claude-plugin/marketplace.json \
+           .cursor-plugin/marketplace.json
+   git commit -m "chore(k8s): bump version to x.y.z"
+   ```
+
+CI will rebuild and re-commit the catalogs automatically on push to `main`, so step 2 is optional if you push directly.

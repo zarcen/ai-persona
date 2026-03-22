@@ -58,6 +58,23 @@ validate_plugin() {
     done
   fi
 
+  # Version consistency — both plugin.json files must declare the same version
+  local claude_json="$plugin_dir/.claude-plugin/plugin.json"
+  if [[ -f "$claude_json" && -f "$cursor_json" ]]; then
+    local claude_ver cursor_ver
+    claude_ver="$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version',''))" < "$claude_json")"
+    cursor_ver="$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version',''))" < "$cursor_json")"
+    if [[ -z "$claude_ver" ]]; then
+      err ".claude-plugin/plugin.json missing required field: version"
+    elif [[ -z "$cursor_ver" ]]; then
+      err ".cursor-plugin/plugin.json missing required field: version"
+    elif [[ "$claude_ver" != "$cursor_ver" ]]; then
+      err "version mismatch: .claude-plugin/plugin.json=$claude_ver vs .cursor-plugin/plugin.json=$cursor_ver"
+    else
+      ok "version consistent: $claude_ver"
+    fi
+  fi
+
   # Logo symlink
   local logo="$plugin_dir/assets/logo.svg"
   if [[ ! -L "$logo" ]]; then
